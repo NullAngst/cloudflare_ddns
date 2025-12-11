@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudflare DDNS Script Generator (Token Based)</title>
+    <style>
+        :root {
+            --bg-color: #1a1b26;
+            --card-bg: #24283b;
+            --text-color: #a9b1d6;
+            --accent-color: #7aa2f7;
+            --input-bg: #1f2335;
+            --border-color: #414868;
+            --success-color: #9ece6a;
+            --warning-color: #e0af68;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            padding: 2rem;
+            margin: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            display: grid;
+            gap: 2rem;
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--border-color);
+        }
+
+        h2 {
+            margin-top: 0;
+            color: var(--accent-color);
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+
+        h3 {
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            color: #c0caf5;
+            font-size: 1.1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.2rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+            color: #c0caf5;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        select {
+            width: 100%;
+            padding: 0.8rem;
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: #fff;
+            font-family: monospace;
+            box-sizing: border-box;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--accent-color);
+        }
+
+        .checkbox-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+        }
+
+        input[type="checkbox"] {
+            width: 1.2rem;
+            height: 1.2rem;
+            accent-color: var(--accent-color);
+        }
+
+        pre {
+            background-color: #16161e;
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            color: #7dcfff;
+            font-size: 0.9rem;
+            border: 1px solid var(--border-color);
+            min-height: 50px;
+            white-space: pre-wrap;
+        }
+
+        .code-block-large {
+            min-height: 200px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 0.8rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn-copy {
+            background-color: var(--accent-color);
+            color: #1a1b26;
+        }
+
+        .btn-copy:hover {
+            opacity: 0.9;
+        }
+
+        .note {
+            font-size: 0.85rem;
+            color: #565f89;
+            margin-top: 0.3rem;
+        }
+
+        .warning-note {
+            color: var(--warning-color);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card">
+        <h2>1. Script Configuration</h2>
+
+        <div class="form-group">
+            <label for="auth_token">Cloudflare API Token</label>
+            <input type="password" id="auth_token" placeholder="Your Scoped API Token" oninput="updateAll()">
+            <div class="note">Create at <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:#7aa2f7;">User Profile > API Tokens</a>. Use the "Edit Zone DNS" template.</div>
+        </div>
+
+        <div class="form-group">
+            <label for="zone_id">Zone ID</label>
+            <input type="text" id="zone_id" placeholder="Overview page > right sidebar" oninput="updateAll()">
+        </div>
+
+        <div class="form-group">
+            <label for="record_name">DNS Record Name</label>
+            <input type="text" id="record_name" placeholder="vpn.mydomain.com" oninput="updateAll()">
+        </div>
+
+        <div class="form-group checkbox-wrapper">
+            <input type="checkbox" id="proxied" onchange="updateAll()">
+            <label for="proxied" style="margin:0; cursor:pointer;">Proxy through Cloudflare (Orange Cloud)?</label>
+        </div>
+
+        <div class="note warning-note">Note: Email is not required when using an API Token.</div>
+    </div>
+
+    <div class="card">
+        <h2>2. Generated Script</h2>
+        <pre id="outputCode" class="code-block-large">
+#!/bin/bash
+# Waiting for input...
+        </pre>
+        <div class="btn-group">
+            <button class="btn-copy" onclick="copyToClipboard('outputCode')">Copy Script</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>3. Cron Job Schedule</h2>
+
+        <div class="form-group">
+            <label for="cron_schedule">Update Frequency</label>
+            <select id="cron_schedule" onchange="updateAll()">
+                <option value="*/5 * * * *">Every 5 Minutes (Recommended)</option>
+                <option value="*/1 * * * *">Every 1 Minute (Aggressive)</option>
+                <option value="*/15 * * * *">Every 15 Minutes</option>
+                <option value="0 * * * *">Every Hour</option>
+                <option value="0 0 * * *">Every Day at Midnight</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="script_path">Path to Script</label>
+            <input type="text" id="script_path" value="/home/user/scripts/cloudflare_ddns.sh" oninput="updateAll()">
+            <div class="note">Where will you save the file above?</div>
+        </div>
+
+        <h3>Cron Line</h3>
+        <pre id="cronOutput">*/5 * * * * /bin/bash /home/user/scripts/cloudflare_ddns.sh >/dev/null 2>&1</pre>
+
+        <div class="btn-group">
+            <button class="btn-copy" onclick="copyToClipboard('cronOutput')">Copy Cron Job</button>
+        </div>
+        <div class="note">Run <code>crontab -e</code> in your terminal and paste this line at the bottom.</div>
+    </div>
+</div>
+
+<script>
+    function updateAll() {
+        updateScript();
+        updateCron();
+    }
+
+    function updateScript() {
+        const token = document.getElementById('auth_token').value || 'YOUR_API_TOKEN_HERE';
+        const zone = document.getElementById('zone_id').value || 'YOUR_ZONE_ID';
+        const record = document.getElementById('record_name').value || 'vpn.mydomain.com';
+        const isProxied = document.getElementById('proxied').checked ? 'true' : 'false';
+
+        const scriptContent = `#!/bin/bash
+# Cloudflare DDNS Updater Script
+# Using API Token (Bearer Auth)
+
+# --- Configuration ---
+auth_token="YOUR_API_TOKEN_HERE"
+zone_identifier="YOUR_ZONE_ID"
+record_name="mydomain.com"
+proxied="true"
+
+# --- 1. Get Current Public IP ---
+# Using ipv4.icanhazip.com services as requested
+# Primary: IPv4 (since this script updates A records)
+ip=$(curl -s https://ipv4.icanhazip.com)
+
+# Alternative endpoints:
+# ip=$(curl -s https://ipv6.icanhazip.com)
+
+if [[ -z "$ip" ]]; then
+    echo "Error: Could not determine public IP."
+    exit 1
+fi
+
+echo "Current Public IP: $ip"
+
+# --- 2. Get Cloudflare DNS Record ---
+# Note: Using "Authorization: Bearer" instead of X-Auth-Key/Email
+record_info=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records?name=$record_name" \
+     -H "Authorization: Bearer $auth_token" \
+     -H "Content-Type: application/json")
+
+# Check if auth failed (common error with tokens)
+if [[ "$record_info" == *"\"success\":false"* ]]; then
+    echo "Error: Authentication failed. Check your API Token and Permissions."
+    echo "$record_info"
+    exit 1
+fi
+
+record_identifier=$(echo "$record_info" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+old_ip=$(echo "$record_info" | grep -o '"content":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+if [[ -z "$record_identifier" ]]; then
+    echo "Error: Could not find record for $record_name"
+    exit 1
+fi
+
+echo "Cloudflare IP: $old_ip"
+
+# --- 3. Compare and Update ---
+if [[ "$ip" == "$old_ip" ]]; then
+    echo "IP has not changed. No update needed."
+    exit 0
+fi
+
+echo "IP changed. Updating record..."
+
+update=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records/$record_identifier" \
+     -H "Authorization: Bearer $auth_token" \
+     -H "Content-Type: application/json" \
+     --data "{\"type\":\"A\",\"name\":\"$record_name\",\"content\":\"$ip\",\"proxied\":$proxied}")
+
+if [[ "$update" == *"\"success\":true"* ]]; then
+    echo "Success: DNS record updated to $ip"
+else
+    echo "Error: Update failed."
+    echo "$update"
+fi`;
+
+        document.getElementById('outputCode').textContent = scriptContent;
+    }
+
+    function updateCron() {
+        const schedule = document.getElementById('cron_schedule').value;
+        const path = document.getElementById('script_path').value || '/path/to/script.sh';
+
+        // Standard cron format: schedule + shell + script + silence output
+        const cronLine = `${schedule} /bin/bash ${path} >/dev/null 2>&1`;
+        document.getElementById('cronOutput').textContent = cronLine;
+    }
+
+    function copyToClipboard(elementId) {
+        const code = document.getElementById(elementId).textContent;
+        navigator.clipboard.writeText(code).then(() => {
+            // Find the button associated with this copy action
+            const btn = document.querySelector(`button[onclick*="${elementId}"]`);
+            const originalText = btn.textContent;
+            btn.textContent = 'Copied!';
+            btn.style.backgroundColor = '#9ece6a';
+            setTimeout(() => {
+                btn.textContent = originalText;
+                btn.style.backgroundColor = '';
+            }, 2000);
+        });
+    }
+
+    // Initialize on load
+    window.onload = updateAll;
+</script>
+
+</body>
+</html>
