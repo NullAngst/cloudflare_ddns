@@ -1,67 +1,143 @@
 #!/bin/bash
-# Cloudflare DDNS Updater Script
-# Using API Token (Bearer Auth)
+# Cloudflare DDNS Updater Script (Multi-Record, Dual Stack)
+# Requires: curl, jq
 
-# --- Configuration ---
-auth_token="YOUR_API_TOKEN_HERE"
-zone_identifier="YOUR_ZONE_ID"
-record_name="mydomain.com"
-proxied="true"
+set -euo pipefail
 
-# --- 1. Get Current Public IP ---
-# Using ipv4.icanhazip.com services as requested
-# Primary: IPv4 (since this script updates A records)
-ip=$(curl -s https://ipv4.icanhazip.com)
+# Configuration variables
+AUTH_TOKEN='YOUR_API_TOKEN_HERE'
+ZONE_ID='YOUR_ZONE_ID'
+LOG_FILE="${LOG_FILE:-/var/log/cloudflare_ddns.log}"
+MAX_RETRIES=3
+RETRY_DELAY=5
 
-# Alternative endpoints:
-# ip=$(curl -s https://ipv6.icanhazip.com)
+# DNS Records Configuration
+declare -A records_0
+records_0[name]='app.example.com'
+records_0[enable_v4]=true
+records_0[enable_v6]=false
+records_0[proxied]=true
 
-if [[ -z "$ip" ]]; then
-    echo "Error: Could not determine public IP."
+NUM_RECORDS=1
+
+# Logging Function
+log() {
+    local level="$1"
+    shift
+    local message="$@"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] [$level] $message" | tee -a "$LOG_FILE"
+}
+
+# Error Handler
+error_exit() {
+    log "ERROR" "$@"
     exit 1
-fi
+}
 
-echo "Current Public IP: $ip"
+# Function: Update Record
+update_record() {
+    local record_type=$1
+    local curl_flag=$2
+    local record_name=$3
+    local proxied=$4
+    local retry_count=0
 
-# --- 2. Get Cloudflare DNS Record ---
-# Note: Using "Authorization: Bearer" instead of X-Auth-Key/Email
-record_info=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records?name=$record_name" \
-     -H "Authorization: Bearer $auth_token" \
-     -H "Content-Type: application/json")
+    log "INFO" "Updating $record_type record for $record_name"
 
-# Check if auth failed (common error with tokens)
-if [[ "$record_info" == *"\"success\":false"* ]]; then
-    echo "Error: Authentication failed. Check your API Token and Permissions."
-    echo "$record_info"
-    exit 1
-fi
+    # 1. Fetch public IP with retry logic
+    local ip=""
+    while [[ $retry_count -lt $MAX_RETRIES ]]; do
+        ip=$(curl -s $curl_flag https://icanhazip.com 2>/dev/null || true)
+        if [[ -n "$ip" ]]; then
+            break
+        fi
+        retry_count=$((retry_count + 1))
+        if [[ $retry_count -lt $MAX_RETRIES ]]; then
+            log "WARN" "Failed to fetch IP (attempt $retry_count/$MAX_RETRIES). Retrying in $RETRY_DELAY seconds..."
+            sleep $RETRY_DELAY
+        fi
+    done
 
-record_identifier=$(echo "$record_info" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-old_ip=$(echo "$record_info" | grep -o '"content":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [[ -z "$ip" ]]; then
+        error_exit "Could not determine public $record_type IP after $MAX_RETRIES attempts"
+    fi
 
-if [[ -z "$record_identifier" ]]; then
-    echo "Error: Could not find record for $record_name"
-    exit 1
-fi
+    log "INFO" "Current Public $record_type: $ip"
 
-echo "Cloudflare IP: $old_ip"
+    # 2. Query Cloudflare API for existing record
+    local api_response
+    retry_count=0
+    while [[ $retry_count -lt $MAX_RETRIES ]]; do
+        api_response=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records?name=$record_name&type=$record_type" \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
+            -H "Content-Type: application/json" 2>/dev/null || echo '{"success":false}')
+        
+        if echo "$api_response" | jq -e '.success' >/dev/null 2>&1; then
+            break
+        fi
+        retry_count=$((retry_count + 1))
+        if [[ $retry_count -lt $MAX_RETRIES ]]; then
+            log "WARN" "API call failed (attempt $retry_count/$MAX_RETRIES). Retrying in $RETRY_DELAY seconds..."
+            sleep $RETRY_DELAY
+        fi
+    done
 
-# --- 3. Compare and Update ---
-if [[ "$ip" == "$old_ip" ]]; then
-    echo "IP has not changed. No update needed."
-    exit 0
-fi
+    if ! echo "$api_response" | jq -e '.success' >/dev/null 2>&1; then
+        error_exit "Cloudflare API error or authentication failed for $record_name ($record_type). Response: $api_response"
+    fi
 
-echo "IP changed. Updating record..."
+    # Extract record ID and current IP using jq
+    local record_id=$(echo "$api_response" | jq -r '.result[0].id // empty' 2>/dev/null || true)
+    local old_ip=$(echo "$api_response" | jq -r '.result[0].content // empty' 2>/dev/null || true)
 
-update=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records/$record_identifier" \
-     -H "Authorization: Bearer $auth_token" \
-     -H "Content-Type: application/json" \
-     --data "{\"type\":\"A\",\"name\":\"$record_name\",\"content\":\"$ip\",\"proxied\":$proxied}")
+    if [[ -z "$record_id" ]]; then
+        log "WARN" "Record '$record_name' ($record_type) not found in Cloudflare zone. Skipping."
+        return 1
+    fi
 
-if [[ "$update" == *"\"success\":true"* ]]; then
-    echo "Success: DNS record updated to $ip"
-else
-    echo "Error: Update failed."
-    echo "$update"
-fi
+    log "INFO" "Cloudflare $record_type: $old_ip"
+
+    # 3. Compare and Update if needed
+    if [[ "$ip" == "$old_ip" ]]; then
+        log "INFO" "[$record_name] IP unchanged. No update needed."
+        return 0
+    fi
+
+    log "INFO" "[$record_name] IP changed ($old_ip to $ip). Updating record..."
+
+    # 4. Update the DNS record
+    local update_response
+    retry_count=0
+    while [[ $retry_count -lt $MAX_RETRIES ]]; do
+        update_response=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/dns_records/$record_id" \
+            -H "Authorization: Bearer $AUTH_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "{\"type\":\"$record_type\",\"name\":\"$record_name\",\"content\":\"$ip\",\"proxied\":$proxied}" 2>/dev/null || echo '{"success":false}')
+        
+        if echo "$update_response" | jq -e '.success' >/dev/null 2>&1; then
+            break
+        fi
+        retry_count=$((retry_count + 1))
+        if [[ $retry_count -lt $MAX_RETRIES ]]; then
+            log "WARN" "Update failed (attempt $retry_count/$MAX_RETRIES). Retrying in $RETRY_DELAY seconds..."
+            sleep $RETRY_DELAY
+        fi
+    done
+
+    # Verify update success
+    if echo "$update_response" | jq -e '.success' >/dev/null 2>&1; then
+        log "INFO" "✓ [$record_name] $record_type record successfully updated to $ip"
+        return 0
+    else
+        error_exit "Update failed for $record_name ($record_type). Response: $update_response"
+    fi
+}
+
+# Main Execution
+log "INFO" "=== Cloudflare DDNS Update Started ==="
+
+# Execution block based on array above
+update_record "A" "-4" "${records_0[name]}" "${records_0[proxied]}"
+
+log "INFO" "=== Cloudflare DDNS Update Completed ==="
