@@ -1,336 +1,481 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cloudflare DDNS Script Generator (Token Based)</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cloudflare DDNS Generator</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap"
+      rel="stylesheet"
+    />
+
     <style>
-        :root {
-            --bg-color: #1a1b26;
-            --card-bg: #24283b;
-            --text-color: #a9b1d6;
-            --accent-color: #7aa2f7;
-            --input-bg: #1f2335;
-            --border-color: #414868;
-            --success-color: #9ece6a;
-            --warning-color: #e0af68;
-        }
+      select {
+        -webkit-appearance: none;
+        -moz-appearance: none;
+        appearance: none;
+        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232563eb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 1rem center;
+        background-size: 1em;
+      }
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            display: flex;
-            justify-content: center;
-            padding: 2rem;
-            margin: 0;
-        }
+      input[type="checkbox"] {
+        appearance: none;
+        background-color: #1e293b;
+        margin: 0;
+        font: inherit;
+        color: currentColor;
+        width: 1.15em;
+        height: 1.15em;
+        border: 1px solid #334155;
+        display: grid;
+        place-content: center;
+        border-radius: 0.125rem;
+      }
 
-        .container {
-            width: 100%;
-            max-width: 800px;
-            display: grid;
-            gap: 2rem;
-        }
+      input[type="checkbox"]::before {
+        content: "";
+        width: 0.65em;
+        height: 0.65em;
+        transform: scale(0);
+        transition: 120ms transform ease-in-out;
+        box-shadow: inset 1em 1em #2563eb;
+      }
 
-        .card {
-            background-color: var(--card-bg);
-            padding: 2rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-            border: 1px solid var(--border-color);
-        }
+      input[type="checkbox"]:checked::before {
+        transform: scale(1);
+      }
 
-        h2 {
-            margin-top: 0;
-            color: var(--accent-color);
-            border-bottom: 2px solid var(--border-color);
-            padding-bottom: 0.5rem;
-        }
+      input[type="checkbox"]:checked {
+        border-color: #2563eb;
+      }
 
-        h3 {
-            margin-top: 1.5rem;
-            margin-bottom: 0.5rem;
-            color: #c0caf5;
-            font-size: 1.1rem;
-        }
+      .record-card {
+        animation: slideIn 0.2s ease-out;
+      }
 
-        .form-group {
-            margin-bottom: 1.2rem;
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
         }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-            color: #c0caf5;
-        }
+      .record-card.removing {
+        animation: slideOut 0.2s ease-out forwards;
+      }
 
-        input[type="text"],
-        input[type="password"],
-        select {
-            width: 100%;
-            padding: 0.8rem;
-            background-color: var(--input-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            color: #fff;
-            font-family: monospace;
-            box-sizing: border-box;
-            transition: border-color 0.2s;
+      @keyframes slideOut {
+        to {
+          opacity: 0;
+          transform: translateY(-10px);
         }
-
-        input:focus, select:focus {
-            outline: none;
-            border-color: var(--accent-color);
-        }
-
-        .checkbox-wrapper {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-        }
-
-        input[type="checkbox"] {
-            width: 1.2rem;
-            height: 1.2rem;
-            accent-color: var(--accent-color);
-        }
-
-        pre {
-            background-color: #16161e;
-            padding: 1rem;
-            border-radius: 6px;
-            overflow-x: auto;
-            color: #7dcfff;
-            font-size: 0.9rem;
-            border: 1px solid var(--border-color);
-            min-height: 50px;
-            white-space: pre-wrap;
-        }
-
-        .code-block-large {
-            min-height: 200px;
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 1rem;
-            margin-top: 1rem;
-        }
-
-        button {
-            flex: 1;
-            padding: 0.8rem;
-            border: none;
-            border-radius: 6px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        .btn-copy {
-            background-color: var(--accent-color);
-            color: #1a1b26;
-        }
-
-        .btn-copy:hover {
-            opacity: 0.9;
-        }
-
-        .note {
-            font-size: 0.85rem;
-            color: #565f89;
-            margin-top: 0.3rem;
-        }
-
-        .warning-note {
-            color: var(--warning-color);
-        }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body class="min-h-screen bg-gray-950 flex flex-col items-center p-6 selection:bg-blue-600 selection:text-white font-sans">
+    <nav class="w-full max-w-6xl mb-8 flex justify-between items-center">
+      <a href="/" class="group flex items-center text-sm font-medium text-gray-400 hover:text-blue-500 transition-colors">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back
+      </a>
+      <div class="h-px flex-grow bg-gray-800 mx-4"></div>
+      <span class="text-xs text-gray-500 uppercase tracking-wider font-semibold">Utility</span>
+    </nav>
 
-<div class="container">
-    <div class="card">
-        <h2>1. Script Configuration</h2>
+    <main class="w-full max-w-6xl">
+      <header class="mb-10">
+        <h1 class="text-3xl font-extrabold tracking-tight text-white">
+          Cloudflare <span class="text-blue-500">DDNS Generator</span>
+        </h1>
+        <p class="text-gray-400 mt-2 text-sm">
+          Automated Bash script generation for dynamic IP updates.
+        </p>
+      </header>
 
-        <div class="form-group">
-            <label for="auth_token">Cloudflare API Token</label>
-            <input type="password" id="auth_token" placeholder="Your Scoped API Token" oninput="updateAll()">
-            <div class="note">Create at <a href="https://dash.cloudflare.com/profile/api-tokens" target="_blank" style="color:#7aa2f7;">User Profile > API Tokens</a>. Use the "Edit Zone DNS" template.</div>
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-5 space-y-6">
+          <div class="bg-gray-900 border border-gray-800 p-6 rounded-lg relative group hover:border-blue-900/50 transition-colors shadow-sm">
+            <h3 class="text-xs font-bold text-blue-500 uppercase tracking-wide mb-6 border-b border-gray-800 pb-2">
+              Authentication
+            </h3>
+            <div class="space-y-4">
+              <div>
+                <label class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1 block">API Token (Edit Zone DNS)</label>
+                <input type="password" id="auth_token" placeholder="Example: 4_SampleToken..." oninput="updateAll()" class="w-full bg-gray-950 border border-gray-700 p-3 text-gray-300 focus:border-blue-500 focus:outline-none transition-colors rounded-md font-mono text-sm" />
+              </div>
+              <div>
+                <label class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1 block">Zone ID</label>
+                <input type="text" id="zone_id" placeholder="Example: 023e105f4..." oninput="updateAll()" class="w-full bg-gray-950 border border-gray-700 p-3 text-gray-300 focus:border-blue-500 focus:outline-none transition-colors rounded-md font-mono text-sm" />
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gray-900 border border-gray-800 p-6 rounded-lg relative group hover:border-blue-900/50 transition-colors shadow-sm">
+            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-6 border-b border-gray-800 pb-2">
+              DNS Records
+            </h3>
+            <div class="space-y-4" id="records_container"></div>
+            <button onclick="addRecord()" class="w-full mt-4 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-blue-400 hover:text-blue-300 p-3 rounded-md text-sm font-medium transition-colors shadow-sm">
+              + Add Record
+            </button>
+          </div>
+
+          <div class="bg-gray-900 border border-gray-800 p-6 rounded-lg relative group hover:border-blue-900/50 transition-colors shadow-sm">
+            <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wide mb-6 border-b border-gray-800 pb-2">
+              Scheduler
+            </h3>
+            <div class="space-y-4">
+              <div>
+                <label class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1 block">Update Frequency</label>
+                <select id="cron_schedule" onchange="updateAll()" class="w-full bg-gray-950 border border-gray-700 p-3 text-gray-300 focus:border-blue-500 focus:outline-none transition-colors rounded-md text-sm">
+                  <option value="*/5 * * * *">Every 5 Minutes (Recommended)</option>
+                  <option value="*/1 * * * *">Every 1 Minute (Aggressive)</option>
+                  <option value="*/15 * * * *">Every 15 Minutes</option>
+                  <option value="0 * * * *">Every Hour</option>
+                  <option value="0 0 * * *">Every Day at Midnight</option>
+                </select>
+              </div>
+              <div>
+                <label class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1 block">Script Path on Server</label>
+                <input type="text" id="script_path" value="/home/user/scripts/cloudflare_ddns.sh" oninput="updateAll()" class="w-full bg-gray-950 border border-gray-700 p-3 text-gray-300 focus:border-blue-500 focus:outline-none transition-colors rounded-md font-mono text-sm" />
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="form-group">
-            <label for="zone_id">Zone ID</label>
-            <input type="text" id="zone_id" placeholder="Overview page > right sidebar" oninput="updateAll()">
+        <div class="lg:col-span-7 flex flex-col gap-6">
+          <div class="flex-grow flex flex-col">
+            <div class="flex justify-between items-end mb-2">
+              <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                Generated Bash Script
+              </label>
+              <button class="text-xs font-semibold text-blue-500 hover:text-white bg-blue-900/20 hover:bg-blue-600 px-3 py-1.5 rounded-md transition-colors" onclick="copyToClipboard('outputCode', this)">
+                Copy Source
+              </button>
+            </div>
+            <div class="relative bg-[#0d1117] border border-gray-800 rounded-lg p-4 overflow-hidden group flex-grow shadow-lg">
+              <pre id="outputCode" class="font-mono text-[13px] leading-relaxed text-gray-300 whitespace-pre-wrap break-all h-full overflow-y-auto custom-scrollbar pt-2 pl-1"></pre>
+            </div>
+          </div>
+
+          <div>
+            <div class="flex justify-between items-end mb-2">
+              <label class="text-xs font-bold text-gray-500 uppercase tracking-wide">Crontab Entry</label>
+              <button class="text-xs font-semibold text-blue-500 hover:text-white bg-blue-900/20 hover:bg-blue-600 px-3 py-1.5 rounded-md transition-colors" onclick="copyToClipboard('cronOutput', this)">
+                Copy Line
+              </button>
+            </div>
+            <div class="bg-[#0d1117] border border-gray-800 rounded-lg p-4 font-mono text-[13px] text-green-400 shadow-md">
+              <span class="text-gray-600 select-none">$ </span>
+              <span id="cronOutput"></span>
+            </div>
+          </div>
         </div>
+      </div>
 
-        <div class="form-group">
-            <label for="record_name">DNS Record Name</label>
-            <input type="text" id="record_name" placeholder="vpn.mydomain.com" oninput="updateAll()">
-        </div>
+      <footer class="mt-16 text-center border-t border-gray-800 pt-8 pb-8">
+        <p class="text-sm text-gray-500">
+          Generator v1.1.0
+        </p>
+      </footer>
+    </main>
 
-        <div class="form-group checkbox-wrapper">
-            <input type="checkbox" id="proxied" onchange="updateAll()">
-            <label for="proxied" style="margin:0; cursor:pointer;">Proxy through Cloudflare (Orange Cloud)?</label>
-        </div>
+    <script>
+      let recordCounter = 0;
 
-        <div class="note warning-note">Note: Email is not required when using an API Token.</div>
-    </div>
+      function initializeRecords() {
+        if (document.querySelectorAll('.record-card').length === 0) {
+          addRecord();
+        }
+      }
 
-    <div class="card">
-        <h2>2. Generated Script</h2>
-        <pre id="outputCode" class="code-block-large">
-#!/bin/bash
-# Waiting for input...
-        </pre>
-        <div class="btn-group">
-            <button class="btn-copy" onclick="copyToClipboard('outputCode')">Copy Script</button>
-        </div>
-    </div>
+      function addRecord() {
+        const container = document.getElementById('records_container');
+        const recordId = recordCounter++;
+        
+        const recordHtml = `
+          <div class="record-card bg-gray-950 border border-gray-800 p-4 rounded-lg space-y-4 shadow-sm" data-record-id="${recordId}">
+            <div class="flex justify-between items-start gap-2">
+              <div class="flex-grow space-y-4">
+                <div>
+                  <label class="text-[11px] font-medium text-gray-400 uppercase tracking-wide mb-1 block">DNS Record Name</label>
+                  <input type="text" class="record-name w-full bg-gray-900 border border-gray-700 p-2 text-gray-300 focus:border-blue-500 focus:outline-none transition-colors rounded-md font-mono text-sm" placeholder="app.example.com" oninput="updateAll()" />
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                  <label class="flex items-center gap-2 p-2 bg-gray-900 border border-gray-700 rounded-md cursor-pointer hover:border-gray-500 transition-colors">
+                    <input type="checkbox" class="record-v4" checked onchange="updateAll()" />
+                    <span class="text-sm text-gray-300">IPv4 (A)</span>
+                  </label>
+                  <label class="flex items-center gap-2 p-2 bg-gray-900 border border-gray-700 rounded-md cursor-pointer hover:border-gray-500 transition-colors">
+                    <input type="checkbox" class="record-v6" onchange="updateAll()" />
+                    <span class="text-sm text-gray-300">IPv6 (AAAA)</span>
+                  </label>
+                  <label class="flex items-center gap-2 p-2 bg-gray-900 border border-gray-700 rounded-md cursor-pointer hover:border-gray-500 transition-colors col-span-2">
+                    <input type="checkbox" class="record-proxied" onchange="updateAll()" />
+                    <span class="text-sm text-gray-300">Proxied (Orange Cloud)</span>
+                  </label>
+                </div>
+              </div>
+              <button onclick="removeRecord(${recordId})" class="flex-shrink-0 p-2 text-gray-500 hover:text-red-400 hover:bg-gray-800 rounded-md transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        `;
 
-    <div class="card">
-        <h2>3. Cron Job Schedule</h2>
+        container.insertAdjacentHTML('beforeend', recordHtml);
+        updateAll();
+      }
 
-        <div class="form-group">
-            <label for="cron_schedule">Update Frequency</label>
-            <select id="cron_schedule" onchange="updateAll()">
-                <option value="*/5 * * * *">Every 5 Minutes (Recommended)</option>
-                <option value="*/1 * * * *">Every 1 Minute (Aggressive)</option>
-                <option value="*/15 * * * *">Every 15 Minutes</option>
-                <option value="0 * * * *">Every Hour</option>
-                <option value="0 0 * * *">Every Day at Midnight</option>
-            </select>
-        </div>
+      function removeRecord(recordId) {
+        const card = document.querySelector(`[data-record-id="${recordId}"]`);
+        if (card) {
+          card.classList.add('removing');
+          setTimeout(() => {
+            card.remove();
+            updateAll();
+          }, 200);
+        }
+      }
 
-        <div class="form-group">
-            <label for="script_path">Path to Script</label>
-            <input type="text" id="script_path" value="/home/user/scripts/cloudflare_ddns.sh" oninput="updateAll()">
-            <div class="note">Where will you save the file above?</div>
-        </div>
+      function getRecords() {
+        const records = [];
+        document.querySelectorAll('.record-card').forEach(card => {
+          const name = card.querySelector('.record-name').value.trim();
+          if (name) {
+            records.push({
+              name: name,
+              enableV4: card.querySelector('.record-v4').checked,
+              enableV6: card.querySelector('.record-v6').checked,
+              proxied: card.querySelector('.record-proxied').checked
+            });
+          }
+        });
+        return records;
+      }
 
-        <h3>Cron Line</h3>
-        <pre id="cronOutput">*/5 * * * * /bin/bash /home/user/scripts/cloudflare_ddns.sh >/dev/null 2>&1</pre>
-
-        <div class="btn-group">
-            <button class="btn-copy" onclick="copyToClipboard('cronOutput')">Copy Cron Job</button>
-        </div>
-        <div class="note">Run <code>crontab -e</code> in your terminal and paste this line at the bottom.</div>
-    </div>
-</div>
-
-<script>
-    function updateAll() {
+      function updateAll() {
         updateScript();
         updateCron();
-    }
+      }
 
-    function updateScript() {
-        const token = document.getElementById('auth_token').value || 'YOUR_API_TOKEN_HERE';
-        const zone = document.getElementById('zone_id').value || 'YOUR_ZONE_ID';
-        const record = document.getElementById('record_name').value || 'vpn.mydomain.com';
-        const isProxied = document.getElementById('proxied').checked ? 'true' : 'false';
+      function escapeShellString(str) {
+        return str.replace(/'/g, "'\\''");
+      }
 
-        const scriptContent = `#!/bin/bash
-# Cloudflare DDNS Updater Script
-# Using API Token (Bearer Auth)
+      function updateScript() {
+        const token = document.getElementById("auth_token").value || "YOUR_API_TOKEN_HERE";
+        const zone = document.getElementById("zone_id").value || "YOUR_ZONE_ID";
+        const safeToken = escapeShellString(token);
+        const safeZone = escapeShellString(zone);
+        const records = getRecords();
 
-# --- Configuration ---
-auth_token="YOUR_API_TOKEN_HERE"
-zone_identifier="YOUR_ZONE_ID"
-record_name="mydomain.com"
-proxied="true"
+        if (records.length === 0) {
+          document.getElementById("outputCode").textContent = `#!/bin/bash\n# No DNS records configured\n# Add at least one record in the DNS Records section`;
+          return;
+        }
 
-# --- 1. Get Current Public IP ---
-# Using ipv4.icanhazip.com services as requested
-# Primary: IPv4 (since this script updates A records)
-ip=$(curl -s https://ipv4.icanhazip.com)
+        let recordsConfig = "";
+        records.forEach((record, index) => {
+          const safeName = escapeShellString(record.name);
+          recordsConfig += `declare -A records_${index}\n`;
+          recordsConfig += `records_${index}[name]='${safeName}'\n`;
+          recordsConfig += `records_${index}[enable_v4]=${record.enableV4 ? "true" : "false"}\n`;
+          recordsConfig += `records_${index}[enable_v6]=${record.enableV6 ? "true" : "false"}\n`;
+          recordsConfig += `records_${index}[proxied]=${record.proxied ? "true" : "false"}\n`;
+          if (index < records.length - 1) recordsConfig += "\n";
+        });
 
-# Alternative endpoints:
-# ip=$(curl -s https://ipv6.icanhazip.com)
+        let scriptContent = `#!/bin/bash
+# Cloudflare DDNS Updater Script (Multi-Record, Dual Stack)
+# Generated via Web Tool v1.1.0
+# Requires: curl, jq
 
-if [[ -z "$ip" ]]; then
-    echo "Error: Could not determine public IP."
+set -euo pipefail
+
+# Configuration
+AUTH_TOKEN='${safeToken}'
+ZONE_ID='${safeZone}'
+LOG_FILE="\${LOG_FILE:-/var/log/cloudflare_ddns.log}"
+MAX_RETRIES=3
+RETRY_DELAY=5
+
+# DNS Records Configuration
+${recordsConfig}
+
+# Number of records to process
+NUM_RECORDS=${records.length}
+
+# Logging Function
+log() {
+    local level="\$1"
+    shift
+    local message="$@"
+    local timestamp=\$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[\$timestamp] [\$level] \$message" | tee -a "\$LOG_FILE"
+}
+
+# Error Handler
+error_exit() {
+    log "ERROR" "$@"
     exit 1
-fi
+}
 
-echo "Current Public IP: $ip"
+# Function: Update Record
+update_record() {
+    local record_type=\$1
+    local curl_flag=\$2
+    local record_name=\$3
+    local proxied=\$4
+    local retry_count=0
 
-# --- 2. Get Cloudflare DNS Record ---
-# Note: Using "Authorization: Bearer" instead of X-Auth-Key/Email
-record_info=$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records?name=$record_name" \
-     -H "Authorization: Bearer $auth_token" \
-     -H "Content-Type: application/json")
+    log "INFO" "Updating \$record_type record for \$record_name"
 
-# Check if auth failed (common error with tokens)
-if [[ "$record_info" == *"\"success\":false"* ]]; then
-    echo "Error: Authentication failed. Check your API Token and Permissions."
-    echo "$record_info"
-    exit 1
-fi
+    local ip=""
+    while [[ \$retry_count -lt \$MAX_RETRIES ]]; do
+        ip=\$(curl -s \$curl_flag https://icanhazip.com 2>/dev/null || true)
+        if [[ -n "\$ip" ]]; then
+            break
+        fi
+        retry_count=\$((retry_count + 1))
+        if [[ \$retry_count -lt \$MAX_RETRIES ]]; then
+            log "WARN" "Failed to fetch IP (attempt \$retry_count/\$MAX_RETRIES). Retrying in \$RETRY_DELAY seconds..."
+            sleep \$RETRY_DELAY
+        fi
+    done
 
-record_identifier=$(echo "$record_info" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
-old_ip=$(echo "$record_info" | grep -o '"content":"[^"]*"' | head -1 | cut -d'"' -f4)
+    if [[ -z "\$ip" ]]; then
+        error_exit "Could not determine public \$record_type IP after \$MAX_RETRIES attempts"
+    fi
 
-if [[ -z "$record_identifier" ]]; then
-    echo "Error: Could not find record for $record_name"
-    exit 1
-fi
+    log "INFO" "Current Public \$record_type: \$ip"
 
-echo "Cloudflare IP: $old_ip"
+    local api_response
+    retry_count=0
+    while [[ \$retry_count -lt \$MAX_RETRIES ]]; do
+        api_response=\$(curl -s -X GET "https://api.cloudflare.com/client/v4/zones/\$ZONE_ID/dns_records?name=\$record_name&type=\$record_type" \\
+            -H "Authorization: Bearer \$AUTH_TOKEN" \\
+            -H "Content-Type: application/json" 2>/dev/null || echo '{"success":false}')
+        
+        if echo "\$api_response" | jq -e '.success' >/dev/null 2>&1; then
+            break
+        fi
+        retry_count=\$((retry_count + 1))
+        if [[ \$retry_count -lt \$MAX_RETRIES ]]; then
+            log "WARN" "API call failed (attempt \$retry_count/\$MAX_RETRIES). Retrying in \$RETRY_DELAY seconds..."
+            sleep \$RETRY_DELAY
+        fi
+    done
 
-# --- 3. Compare and Update ---
-if [[ "$ip" == "$old_ip" ]]; then
-    echo "IP has not changed. No update needed."
-    exit 0
-fi
+    if ! echo "\$api_response" | jq -e '.success' >/dev/null 2>&1; then
+        error_exit "Cloudflare API error or authentication failed for \$record_name (\$record_type). Response: \$api_response"
+    fi
 
-echo "IP changed. Updating record..."
+    local record_id=\$(echo "\$api_response" | jq -r '.result[0].id // empty' 2>/dev/null || true)
+    local old_ip=\$(echo "\$api_response" | jq -r '.result[0].content // empty' 2>/dev/null || true)
 
-update=$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/$zone_identifier/dns_records/$record_identifier" \
-     -H "Authorization: Bearer $auth_token" \
-     -H "Content-Type: application/json" \
-     --data "{\"type\":\"A\",\"name\":\"$record_name\",\"content\":\"$ip\",\"proxied\":$proxied}")
+    if [[ -z "\$record_id" ]]; then
+        log "WARN" "Record '\$record_name' (\$record_type) not found in Cloudflare zone. Skipping."
+        return 1
+    fi
 
-if [[ "$update" == *"\"success\":true"* ]]; then
-    echo "Success: DNS record updated to $ip"
-else
-    echo "Error: Update failed."
-    echo "$update"
-fi`;
+    log "INFO" "Cloudflare \$record_type: \$old_ip"
 
-        document.getElementById('outputCode').textContent = scriptContent;
-    }
+    if [[ "\$ip" == "\$old_ip" ]]; then
+        log "INFO" "[\$record_name] IP unchanged. No update needed."
+        return 0
+    fi
 
-    function updateCron() {
-        const schedule = document.getElementById('cron_schedule').value;
-        const path = document.getElementById('script_path').value || '/path/to/script.sh';
+    log "INFO" "[\$record_name] IP changed (\$old_ip to \$ip). Updating record..."
 
-        // Standard cron format: schedule + shell + script + silence output
-        const cronLine = `${schedule} /bin/bash ${path} >/dev/null 2>&1`;
-        document.getElementById('cronOutput').textContent = cronLine;
-    }
+    local update_response
+    retry_count=0
+    while [[ \$retry_count -lt \$MAX_RETRIES ]]; do
+        update_response=\$(curl -s -X PUT "https://api.cloudflare.com/client/v4/zones/\$ZONE_ID/dns_records/\$record_id" \\
+            -H "Authorization: Bearer \$AUTH_TOKEN" \\
+            -H "Content-Type: application/json" \\
+            --data "{\\"type\\":\\"$record_type\\",\\"name\\":\\"$record_name\\",\\"content\\":\\"$ip\\",\\"proxied\\":$proxied}" 2>/dev/null || echo '{"success":false}')
+        
+        if echo "\$update_response" | jq -e '.success' >/dev/null 2>&1; then
+            break
+        fi
+        retry_count=\$((retry_count + 1))
+        if [[ \$retry_count -lt \$MAX_RETRIES ]]; then
+            log "WARN" "Update failed (attempt \$retry_count/\$MAX_RETRIES). Retrying in \$RETRY_DELAY seconds..."
+            sleep \$RETRY_DELAY
+        fi
+    done
 
-    function copyToClipboard(elementId) {
+    if echo "\$update_response" | jq -e '.success' >/dev/null 2>&1; then
+        log "INFO" "✓ [\$record_name] \$record_type record successfully updated to \$ip"
+        return 0
+    else
+        error_exit "Update failed for \$record_name (\$record_type). Response: \$update_response"
+    fi
+}
+
+# Main Execution
+log "INFO" "=== Cloudflare DDNS Update Started ==="
+`;
+
+        records.forEach((record) => {
+          const safeName = escapeShellString(record.name);
+          scriptContent += `\n# Process record: ${safeName}\n`;
+          if (record.enableV4) {
+            scriptContent += `update_record "A" "-4" '${safeName}' ${record.proxied ? "true" : "false"}\n`;
+          }
+          if (record.enableV6) {
+            scriptContent += `update_record "AAAA" "-6" '${safeName}' ${record.proxied ? "true" : "false"}\n`;
+          }
+          if (!record.enableV4 && !record.enableV6) {
+            scriptContent += `log "WARN" "No IP types enabled for ${safeName}. Skipping."\n`;
+          }
+        });
+
+        scriptContent += `\nlog "INFO" "=== Cloudflare DDNS Update Completed ==="\n`;
+        document.getElementById("outputCode").textContent = scriptContent;
+      }
+
+      function updateCron() {
+        const schedule = document.getElementById("cron_schedule").value;
+        const path = document.getElementById("script_path").value || "/path/to/script.sh";
+        const cronLine = `${schedule} /bin/bash ${path} 2>&1 | /usr/bin/logger -t cloudflare_ddns`;
+        document.getElementById("cronOutput").textContent = cronLine;
+      }
+
+      function copyToClipboard(elementId, btn) {
         const code = document.getElementById(elementId).textContent;
         navigator.clipboard.writeText(code).then(() => {
-            // Find the button associated with this copy action
-            const btn = document.querySelector(`button[onclick*="${elementId}"]`);
-            const originalText = btn.textContent;
-            btn.textContent = 'Copied!';
-            btn.style.backgroundColor = '#9ece6a';
-            setTimeout(() => {
-                btn.textContent = originalText;
-                btn.style.backgroundColor = '';
-            }, 2000);
+          const originalText = btn.textContent;
+          btn.textContent = "Copied!";
+          btn.classList.add("bg-green-600", "text-white");
+          btn.classList.remove("text-blue-500", "bg-blue-900/20");
+
+          setTimeout(() => {
+            btn.textContent = originalText;
+            btn.classList.remove("bg-green-600", "text-white");
+            btn.classList.add("text-blue-500", "bg-blue-900/20");
+          }, 2000);
         });
-    }
+      }
 
-    // Initialize on load
-    window.onload = updateAll;
-</script>
-
-</body>
+      window.onload = function() {
+        initializeRecords();
+        updateAll();
+      };
+    </script>
+  </body>
 </html>
